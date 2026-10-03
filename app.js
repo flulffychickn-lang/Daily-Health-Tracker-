@@ -461,7 +461,22 @@ document.addEventListener("click", e=>{
 
 $("#menuBtn").addEventListener("click",()=>{$("#sidebar").classList.add("open");$("#overlay").classList.add("show");});
 $("#overlay").addEventListener("click",closeSidebar);
-$("#todayBtn").addEventListener("click",()=>{if(currentPage==="exercise")exerciseMonth=new Date();if(currentPage==="medicine")medicineMonth=new Date();render();});
+$("#todayBtn").addEventListener("click",(e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+  if(currentPage==="exercise"){
+    exerciseMonth=new Date();
+    render();
+    return;
+  }
+  if(currentPage==="medicine"){
+    medicineMonth=new Date();
+    render();
+    return;
+  }
+  render();
+  toast("Showing today");
+});
 $("#modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal();});
 $("#backupInput").addEventListener("change",e=>{if(e.target.files[0])importBackup(e.target.files[0]);e.target.value="";});
 
