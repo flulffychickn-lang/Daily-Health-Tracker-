@@ -2,9 +2,13 @@
   "name": "Daily Health Tracker",
   "short_name": "Daily Tracker",
   "start_url": "./",
+  "id": "./",
   "display": "standalone",
   "background_color": "#080b12",
   "theme_color": "#0a0f18",
-  "description": "Private exercise and medicine tracker.",
-  "icons": []
+  "description": "Private exercise and medicine tracker with Web Push reminders.",
+  "icons": [
+    {"src":"./icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"./icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
 }

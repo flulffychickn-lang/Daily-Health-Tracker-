@@ -1,25 +1,63 @@
-# Daily Health Tracker
+# Daily Health Tracker — iPhone PWA + Web Push
 
+This build adds **real Web Push** for medicine reminders.
 
-## iPhone PWA + Medicine Reminders
+The previous browser-timer reminder has been replaced by a push architecture:
 
-This version includes `manifest.json` and `sw.js` so the tracker can be installed from Safari to the iPhone Home Screen.
+**iPhone Home Screen PWA → Web Push subscription → Cloudflare Worker + D1 → scheduled push → iPhone notification**
 
-Each medicine can have multiple daily reminder times and a private notification message. The default message is:
+That means the web app's JavaScript does **not** need to stay open for the reminder to be sent.
 
-**Monster needs med**
+## Privacy design
 
-The notification does not reveal the medicine name.
+- Medicine names and dosages stay in the phone's local storage.
+- The push server stores an opaque reminder ID, reminder time, timezone, enabled state, and notification message.
+- The default notification is **"Monster needs med"** and does not contain the medicine name.
+- If you type a medicine name into the notification message yourself, that message will be sent through the push service.
+- The VAPID private key belongs only on the Cloudflare Worker. Never put it in GitHub or `push-config.js`.
 
-### iPhone setup
+## What is included
 
-1. Publish the repository with GitHub Pages.
-2. Open the GitHub Pages site in **Safari on iPhone**.
-3. Use Safari's **Share → Add to Home Screen**.
-4. Open the installed Daily Tracker.
+- Existing Daily Health Tracker PWA UI
+- Exercise and medicine records
+- Multiple medicine reminder times
+- Private notification message
+- Web Push subscription
+- Service-worker push handling
+- Notification tap opens the tracker
+- Cloudflare Worker API
+- Cloudflare D1 database schema
+- 1-minute Cron Trigger for reminder checks
+- VAPID key generation helper
+
+## Important
+
+This is a notification system, not a guaranteed medical alarm. iOS notification permissions, Focus modes, device state, connectivity, push-service behavior, and Cloudflare scheduling can affect delivery. For critical medication timing, keep a secondary reminder method.
+
+## Setup
+
+See **`WEB_PUSH_SETUP.md`** for the complete Cloudflare + GitHub Pages setup.
+
+### Frontend configuration
+
+Edit `push-config.js` after the Worker is deployed:
+
+```js
+window.PUSH_CONFIG = {
+  apiBase: "https://YOUR-WORKER.workers.dev",
+  vapidPublicKey: "YOUR_VAPID_PUBLIC_KEY"
+};
+```
+
+The VAPID **public** key can be published with the website. The private key must stay in Cloudflare Worker secrets.
+
+## iPhone requirements
+
+1. Publish the website over HTTPS, such as GitHub Pages.
+2. Open it in Safari on iPhone.
+3. Use **Share → Add to Home Screen**.
+4. Open the installed Home Screen app.
 5. Configure a medicine reminder.
-6. Allow notifications if iOS asks.
+6. Allow notifications when iOS asks.
 
-### Important limitation
-
-Web/PWA notifications are controlled by iOS and Safari. This implementation is intended as a convenience reminder and should not be treated as a guaranteed medical alarm. For critical medication timing, keep the iPhone's built-in Reminders/Health or another dedicated medication reminder as a secondary safeguard.
+Web Push for Home Screen web apps is supported on iOS/iPadOS 16.4 and later.

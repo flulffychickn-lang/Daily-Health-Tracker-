@@ -17,6 +17,96 @@ let medicineMonth = new Date();
 const $ = (s) => document.querySelector(s);
 const app = $("#app");
 
+const PUSH_CONFIG = window.PUSH_CONFIG || {};
+const PUSH_CLIENT_KEY = "dailyHealthTracker.pushClientId.v1";
+function getPushClientId(){
+  let id = localStorage.getItem(PUSH_CLIENT_KEY);
+  if(!id){
+    id = (crypto.randomUUID ? crypto.randomUUID() : uid());
+    localStorage.setItem(PUSH_CLIENT_KEY, id);
+  }
+  return id;
+}
+function pushConfigured(){
+  return !!(PUSH_CONFIG.apiBase && PUSH_CONFIG.vapidPublicKey &&
+    !PUSH_CONFIG.apiBase.includes("YOUR-WORKER") &&
+    !PUSH_CONFIG.vapidPublicKey.includes("PASTE_YOUR"));
+}
+function getPushTimezone(){
+  try{return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";}catch{return "UTC";}
+}
+function base64UrlToUint8Array(base64UrlString){
+  const padding = "=".repeat((4 - base64UrlString.length % 4) % 4);
+  const base64 = (base64UrlString + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+async function getServiceWorkerRegistration(){
+  if(!("serviceWorker" in navigator)) throw new Error("Service workers are not supported");
+  return await navigator.serviceWorker.ready;
+}
+async function ensureWebPushSubscription(){
+  if(!pushConfigured()) throw new Error("Push backend is not configured yet");
+  if(!("PushManager" in window) || !("Notification" in window)) throw new Error("Web Push is not supported here");
+  if(Notification.permission === "denied") throw new Error("Notifications are blocked in iPhone settings");
+  if(Notification.permission !== "granted") {
+    const permission = await Notification.requestPermission();
+    if(permission !== "granted") throw new Error("Notification permission was not granted");
+  }
+  const reg = await getServiceWorkerRegistration();
+  let sub = await reg.pushManager.getSubscription();
+  if(!sub){
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: base64UrlToUint8Array(PUSH_CONFIG.vapidPublicKey)
+    });
+  }
+  const response = await fetch(PUSH_CONFIG.apiBase.replace(/\/$/, "") + "/api/subscribe", {
+    method:"POST",
+    headers:{"content-type":"application/json","x-client-token":getPushClientId()},
+    body:JSON.stringify({subscription:sub.toJSON()})
+  });
+  if(!response.ok) throw new Error("Could not register this device for push notifications");
+  return sub;
+}
+function buildPushReminders(){
+  const reminders=[];
+  const timezone=getPushTimezone();
+  for(const m of state.medicines){
+    const r=getReminderSettings(m.id);
+    for(const time of (r.times||[])){
+      reminders.push({
+        id:`${m.id}_${String(time).replace(":","")}`,
+        time,
+        timezone,
+        enabled:!!r.enabled,
+        message:(r.message||"Monster needs med").trim().slice(0,120) || "Monster needs med"
+      });
+    }
+  }
+  return reminders;
+}
+async function syncWebPushReminders(){
+  if(!pushConfigured()) return false;
+  const reminders=buildPushReminders();
+  const response=await fetch(PUSH_CONFIG.apiBase.replace(/\/$/, "") + "/api/reminders/sync", {
+    method:"POST",
+    headers:{"content-type":"application/json","x-client-token":getPushClientId()},
+    body:JSON.stringify({reminders})
+  });
+  if(!response.ok) throw new Error("Could not sync reminders with push server");
+  return true;
+}
+async function unregisterPushClient(){
+  if(!pushConfigured()) return;
+  try{await fetch(PUSH_CONFIG.apiBase.replace(/\/$/, "") + "/api/client",{method:"DELETE",headers:{"x-client-token":getPushClientId()}});}catch{}
+}
+function pushStatusText(){
+  if(!pushConfigured()) return "Web Push setup is not connected yet. The app can still save reminders locally, but closed-app notifications are not active.";
+  if("Notification" in window && Notification.permission==="denied") return "Notifications are blocked. Enable them in iPhone Settings to receive reminders.";
+  return "Web Push is ready for this device. The server can send reminders even when the app is not open.";
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(KEY);
@@ -286,7 +376,7 @@ function openReminderSettings(id){
   ${(r.times||[]).map((t,i)=>`<div class="reminder-time-row"><input class="reminder-time" type="time" value="${escapeHtml(t)}"><button type="button" class="btn btn-danger remove-reminder-time">Remove</button></div>`).join("")}
   </div><button type="button" class="btn btn-primary btn-block" style="margin-top:8px" id="addReminderTime">＋ Add Reminder Time</button></div>
   <label class="switch-row"><input id="remindersEnabled" type="checkbox" ${r.enabled?"checked":""}><span>Enable reminders</span></label>
-  <div class="notice" style="margin-top:12px">On iPhone, add this site to the Home Screen and allow notifications when iOS asks.</div>
+  <div class="notice" style="margin-top:12px">On iPhone, add this site to the Home Screen and allow notifications when iOS asks.</div><div class="notice" style="margin-top:8px">${escapeHtml(pushStatusText())}</div>
   <div class="form-actions"><button type="button" class="btn" data-modal-action="close">Cancel</button><button class="btn btn-pink" type="submit">Save Reminders</button></div>
   </form>`);
   const box=$("#reminderTimes");
@@ -300,10 +390,22 @@ function openReminderSettings(id){
     e.preventDefault();
     const times=[...document.querySelectorAll("#reminderTimes .reminder-time")].map(x=>x.value).filter(Boolean).sort();
     state.medicineReminders[id]={enabled:$("#remindersEnabled").checked,times,message:$("#reminderMessage").value.trim()||"Monster needs med"};
-    saveState(); await requestNotificationPermission(); closeModal(); render(); toast("Medicine reminders saved");
+    saveState();
+    try{
+      if(state.medicineReminders[id].enabled){
+        await ensureWebPushSubscription();
+      }
+      await syncWebPushReminders();
+      closeModal(); render(); toast(state.medicineReminders[id].enabled ? "Web Push reminder saved" : "Reminder disabled");
+    }catch(err){
+      closeModal(); render();
+      toast(err?.message || "Push setup needs attention");
+    }
   });
 }
 function checkMedicineReminders(){
+  // Local fallback only. When Web Push is configured, the server is responsible for delivery.
+  if(pushConfigured()) return;
   if(!("Notification" in window)||Notification.permission!=="granted")return;
   const now=new Date(), hhmm=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`, date=isoDate(now);
   let changed=false;
@@ -397,7 +499,7 @@ function importBackup(file) {
 
 function clearAll() {
   if(!confirm("Clear ALL exercise, medicine, and medicine list data? This cannot be undone unless you have a backup.")) return;
-  state=structuredClone(defaultState); saveState(); closeModal(); setPage("dashboard"); toast("All data cleared");
+  state=structuredClone(defaultState); saveState(); unregisterPushClient(); closeModal(); setPage("dashboard"); toast("All data cleared");
 }
 
 function bindDynamic() {
@@ -429,7 +531,7 @@ function deleteMedicine(id) {
   if(!confirm(`Delete "${med.name}" from your medicine list? Existing records will remain.`))return;
   state.medicines=state.medicines.filter(m=>m.id!==id);
   delete state.medicineReminders[id];
-  saveState(); render(); toast("Medicine removed");
+  saveState(); render(); syncWebPushReminders().catch(()=>{}); toast("Medicine removed");
 }
 function deleteDose(id) {
   state.medicineTaken=state.medicineTaken.filter(r=>r.id!==id); saveState(); render();
@@ -481,3 +583,16 @@ $("#modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop
 $("#backupInput").addEventListener("change",e=>{if(e.target.files[0])importBackup(e.target.files[0]);e.target.value="";});
 
 render();
+
+(async function handlePushOpen(){
+  const params=new URLSearchParams(location.search);
+  const reminderId=params.get("reminder");
+  if(!reminderId) return;
+  history.replaceState({},"",location.pathname+location.hash);
+  const med=state.medicines.find(m=>m.id===reminderId || reminderId.startsWith(m.id+"_"));
+  if(med){
+    currentPage="medicine";
+    render();
+    openMedicineDate(isoDate(new Date()));
+  }
+})();
