@@ -347,3 +347,10 @@ nav { display:grid; gap:7px; }
 @media (max-width:600px) {
   .privacy-toggle { min-height:40px; padding:8px 10px; }
 }
+
+.switch-row{display:flex;align-items:center;gap:10px;margin-top:14px;color:#dce7f6;font-size:12px;font-weight:800}
+.switch-row input{width:20px;height:20px;accent-color:var(--cyan)}
+.reminder-time-list{display:grid;gap:8px;max-height:160px;overflow-y:auto;margin-top:8px}
+.reminder-time-row{display:grid;grid-template-columns:1fr auto;gap:7px}
+.reminder-time-row input{width:100%;min-height:44px;border:1px solid #2a394e;border-radius:12px;padding:10px 12px;background:#0b121c;color:var(--text)}
+@media (max-width:600px){.reminder-time-row{grid-template-columns:1fr}.reminder-time-row .btn{width:100%}}

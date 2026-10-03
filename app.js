@@ -3,7 +3,9 @@ const KEY = "dailyHealthTracker.v1";
 const defaultState = {
   exercise: {},       // YYYY-MM-DD -> upper | lower | cardio
   medicines: [],      // {id,name,dosage}
-  medicineTaken: []   // {id,date,time,medicineId,medicineName,dosage}
+  medicineTaken: [],  // {id,date,time,medicineId,medicineName,dosage}
+  medicineReminders: {},
+  reminderLastFired: {}
 };
 
 let state = loadState();
@@ -20,7 +22,12 @@ function loadState() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(defaultState);
     const parsed = JSON.parse(raw);
-    return { ...structuredClone(defaultState), ...parsed };
+    return {
+    ...structuredClone(defaultState),
+    ...parsed,
+    medicineReminders: parsed.medicineReminders || {},
+    reminderLastFired: parsed.reminderLastFired || {}
+  };
   } catch { return structuredClone(defaultState); }
 }
 function saveState() { localStorage.setItem(KEY, JSON.stringify(state)); }
@@ -180,7 +187,7 @@ function renderMedicine() {
         <div class="medicine-list">
           ${state.medicines.length ? (hideMedicines
             ? `<div class="privacy-hidden-card"><div class="privacy-icon">◉</div><strong>Medicines hidden</strong><span>Names and dosages are concealed for privacy.</span><button class="btn btn-pink" data-action="toggle-medicines">Show Medicines</button></div>`
-            : state.medicines.map(m=>`<div class="med-item"><div><div class="med-name">${escapeHtml(m.name)}</div><div class="med-dose">${escapeHtml(m.dosage||"No dosage entered")}</div></div><div class="med-actions"><button class="btn" data-action="edit-medicine" data-id="${m.id}">Edit</button><button class="btn btn-danger" data-action="delete-medicine" data-id="${m.id}">Delete</button></div></div>`).join(""))
+            : state.medicines.map(m=>`<div class="med-item"><div><div class="med-name">${escapeHtml(m.name)}</div><div class="med-dose">${escapeHtml(m.dosage||"No dosage entered")}</div></div><div class="med-actions"><button class="btn btn-primary" data-action="reminder-settings" data-id="${m.id}">⏰</button><button class="btn" data-action="edit-medicine" data-id="${m.id}">Edit</button><button class="btn btn-danger" data-action="delete-medicine" data-id="${m.id}">Delete</button></div></div>`).join(""))
             : `<div class="empty-state">No medicines added yet.<br><br>Tap <b>＋ Add Medicine</b> to begin.</div>`}
         </div>
       </section>
@@ -257,6 +264,59 @@ function openMedicineDate(date) {
     <div style="margin-top:15px"><button class="btn btn-pink btn-block" data-modal-action="record-dose" data-date="${date}">＋ Record Medicine</button></div>
     <button class="btn modal-close" data-modal-action="close">Done</button>`);
 }
+
+
+function getReminderSettings(medicineId){
+  return state.medicineReminders[medicineId]||{enabled:false,times:[],message:"Monster needs med"};
+}
+async function requestNotificationPermission(){
+  if(!("Notification" in window)){toast("Notifications are not supported by this browser");return false;}
+  if(Notification.permission==="granted")return true;
+  if(Notification.permission==="denied"){toast("Notifications are blocked in browser settings");return false;}
+  try{return (await Notification.requestPermission())==="granted";}catch{return false;}
+}
+function openReminderSettings(id){
+  const med=state.medicines.find(m=>m.id===id); if(!med)return;
+  const r=getReminderSettings(id);
+  openModal(`<h3>⏰ Medicine Reminder</h3>
+  <div class="modal-sub">The notification uses a private message and does not show the medicine name.</div>
+  <form id="reminderForm">
+  <div class="field"><label>Private notification message</label><input id="reminderMessage" maxlength="80" value="${escapeHtml(r.message||"Monster needs med")}" required></div>
+  <div class="field" style="margin-top:12px"><label>Reminder times</label><div id="reminderTimes" class="reminder-time-list">
+  ${(r.times||[]).map((t,i)=>`<div class="reminder-time-row"><input class="reminder-time" type="time" value="${escapeHtml(t)}"><button type="button" class="btn btn-danger remove-reminder-time">Remove</button></div>`).join("")}
+  </div><button type="button" class="btn btn-primary btn-block" style="margin-top:8px" id="addReminderTime">＋ Add Reminder Time</button></div>
+  <label class="switch-row"><input id="remindersEnabled" type="checkbox" ${r.enabled?"checked":""}><span>Enable reminders</span></label>
+  <div class="notice" style="margin-top:12px">On iPhone, add this site to the Home Screen and allow notifications when iOS asks.</div>
+  <div class="form-actions"><button type="button" class="btn" data-modal-action="close">Cancel</button><button class="btn btn-pink" type="submit">Save Reminders</button></div>
+  </form>`);
+  const box=$("#reminderTimes");
+  $("#addReminderTime").addEventListener("click",()=>{
+    const row=document.createElement("div"); row.className="reminder-time-row";
+    row.innerHTML=`<input class="reminder-time" type="time" value="08:00"><button type="button" class="btn btn-danger remove-reminder-time">Remove</button>`;
+    box.appendChild(row); row.querySelector("button").addEventListener("click",()=>row.remove());
+  });
+  box.querySelectorAll(".remove-reminder-time").forEach(b=>b.addEventListener("click",()=>b.parentElement.remove()));
+  $("#reminderForm").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const times=[...document.querySelectorAll("#reminderTimes .reminder-time")].map(x=>x.value).filter(Boolean).sort();
+    state.medicineReminders[id]={enabled:$("#remindersEnabled").checked,times,message:$("#reminderMessage").value.trim()||"Monster needs med"};
+    saveState(); await requestNotificationPermission(); closeModal(); render(); toast("Medicine reminders saved");
+  });
+}
+function checkMedicineReminders(){
+  if(!("Notification" in window)||Notification.permission!=="granted")return;
+  const now=new Date(), hhmm=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`, date=isoDate(now);
+  let changed=false;
+  state.medicines.forEach(m=>{
+    const r=getReminderSettings(m.id); if(!r.enabled||!r.times.includes(hhmm))return;
+    const guard=`${date}|${hhmm}|${m.id}`; if(state.reminderLastFired[guard])return;
+    state.reminderLastFired[guard]=true; changed=true;
+    try{new Notification(r.message||"Monster needs med",{body:"Open Daily Tracker to record it.",tag:`medicine-${m.id}-${hhmm}`,renotify:true});}catch{}
+  });
+  if(changed){const keys=Object.keys(state.reminderLastFired).sort().slice(-200);state.reminderLastFired=Object.fromEntries(keys.map(k=>[k,true]));saveState();}
+}
+setInterval(checkMedicineReminders,15000);
+setTimeout(checkMedicineReminders,1200);
 
 function openMedicineForm(id=null) {
   const med=id ? state.medicines.find(m=>m.id===id) : null;
@@ -353,6 +413,7 @@ function bindDynamic() {
     else if(a==="medicine-today") openMedicineDate(isoDate(new Date()));
     else if(a==="add-medicine") openMedicineForm();
     else if(a==="toggle-medicines"){ hideMedicines=!hideMedicines; render(); toast(hideMedicines?"Medicine list hidden":"Medicine list shown"); }
+    else if(a==="reminder-settings") openReminderSettings(el.dataset.id);
     else if(a==="edit-medicine") openMedicineForm(el.dataset.id);
     else if(a==="delete-medicine") deleteMedicine(el.dataset.id);
     else if(a==="delete-dose") deleteDose(el.dataset.id);
@@ -366,7 +427,9 @@ function bindDynamic() {
 function deleteMedicine(id) {
   const med=state.medicines.find(m=>m.id===id); if(!med)return;
   if(!confirm(`Delete "${med.name}" from your medicine list? Existing records will remain.`))return;
-  state.medicines=state.medicines.filter(m=>m.id!==id); saveState(); render(); toast("Medicine removed");
+  state.medicines=state.medicines.filter(m=>m.id!==id);
+  delete state.medicineReminders[id];
+  saveState(); render(); toast("Medicine removed");
 }
 function deleteDose(id) {
   state.medicineTaken=state.medicineTaken.filter(r=>r.id!==id); saveState(); render();
