@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0f18">
+  <title>Daily Health Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-icon">✦</div>
+        <div>
+          <strong>Daily Tracker</strong>
+          <span>Exercise & Medicine</span>
+        </div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-page="dashboard"><span>⌂</span> Dashboard</button>
+        <button class="nav-item" data-page="exercise"><span>⚡</span> Exercise</button>
+        <button class="nav-item" data-page="medicine"><span>✚</span> Medicine</button>
+        <button class="nav-item" data-page="records"><span>▦</span> Monthly Records</button>
+        <button class="nav-item" data-page="backup"><span>↥</span> Backup / Import</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button class="nav-item danger-text" data-page="clear"><span>⌫</span> Clear Data</button>
+        <div class="storage-status"><span class="status-dot"></span> Saved on this device</div>
+      </div>
+    </aside>
+
+    <div class="mobile-overlay" id="overlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open menu">☰</button>
+        <div class="topbar-title">
+          <h1 id="pageTitle">Dashboard</h1>
+          <span id="todayLabel"></span>
+        </div>
+        <button class="icon-btn" id="todayBtn" title="Go to today">Today</button>
+      </header>
+
+      <div id="app"></div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <input type="file" id="backupInput" accept=".json,application/json" hidden>
+  <script src="app.js"></script>
+</body>
+</html>
