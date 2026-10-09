@@ -3,13 +3,11 @@ const KEY = "dailyHealthTracker.v1";
 const defaultState = {
   exercise: {},       // YYYY-MM-DD -> upper | lower | cardio
   medicines: [],      // {id,name,dosage}
-  medicineTaken: [],  // {id,date,time,medicineId,medicineName,dosage}
-  medicineReminders: {},
-  reminderLastFired: {}
+  medicineTaken: []  // {id,date,time,medicineId,medicineName,dosage}
 };
 
 let state = loadState();
-let currentPage = "dashboard";
+let currentPage = "exercise";
 let hideMedicines = false;
 let exerciseMonth = new Date();
 let medicineMonth = new Date();
@@ -24,9 +22,7 @@ function loadState() {
     const parsed = JSON.parse(raw);
     return {
     ...structuredClone(defaultState),
-    ...parsed,
-    medicineReminders: parsed.medicineReminders || {},
-    reminderLastFired: parsed.reminderLastFired || {}
+    ...parsed
   };
   } catch { return structuredClone(defaultState); }
 }
@@ -55,16 +51,15 @@ function closeModal() { $("#modalBackdrop").classList.add("hidden"); $("#modal")
 function setPage(page) {
   currentPage=page;
   document.querySelectorAll(".nav-item[data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
-  const titles={dashboard:"Dashboard",exercise:"Exercise",medicine:"Medicine",records:"Monthly Records",backup:"Backup / Import",clear:"Clear Data"};
+  const titles={exercise:"Exercise",medicine:"Medicine",backup:"Backup & Data",clear:"Clear Data"};
   $("#pageTitle").textContent=titles[page]||"Dashboard";
-  closeSidebar();
   render();
 }
 function closeSidebar() { $("#sidebar").classList.remove("open"); $("#overlay").classList.remove("show"); }
 
 function render() {
   $("#todayLabel").textContent = new Date().toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"});
-  const views={dashboard:renderDashboard,exercise:renderExercise,medicine:renderMedicine,records:renderRecords,backup:renderBackup,clear:renderClear};
+  const views={exercise:renderExercise,medicine:renderMedicine,backup:renderBackup,clear:renderClear};
   app.innerHTML=views[currentPage]();
   bindDynamic();
 }
@@ -145,51 +140,67 @@ function calendarHtml(d, type) {
 
 function renderExercise() {
   const c=exerciseCounts(exerciseMonth);
+  const daysInMonth = new Date(exerciseMonth.getFullYear(), exerciseMonth.getMonth()+1, 0).getDate();
+  const dayOff = daysInMonth - c.total;
+  const records = Object.entries(state.exercise)
+    .filter(([date]) => date.startsWith(monthKey(exerciseMonth)))
+    .sort(([a],[b]) => b.localeCompare(a));
   return `<div class="page">
-    <div class="section-head"><div><h2 style="margin:0">Exercise Tracker</h2><div class="muted small">Tap a date and choose the workout type.</div></div></div>
-    <div class="grid two-col">
-      <section class="card calendar-card">
-        <div class="calendar-nav"><button class="month-arrow" data-action="exercise-prev">‹</button><div class="month-title">${monthName(exerciseMonth)}</div><button class="month-arrow" data-action="exercise-next">›</button></div>
-        ${calendarHtml(exerciseMonth,"exercise")}
-        <div class="legend">${legendItem("cyan","Upper Body")}${legendItem("saffron","Lower Body")}${legendItem("moss","Jogging / Cardio")}${legendItem("","Day Off")}</div>
-      </section>
-      <section class="card">
-        <div class="section-head"><h3>${monthName(exerciseMonth)} Summary</h3></div>
-        <div class="grid" style="gap:9px">
-          <div class="today-row"><strong>Total Workout</strong><span class="pill pill-cyan">${c.total} days</span></div>
-          <div class="today-row"><strong>Upper Body</strong><span class="pill pill-cyan">${c.upper}</span></div>
-          <div class="today-row"><strong>Lower Body</strong><span class="pill pill-saffron">${c.lower}</span></div>
-          <div class="today-row"><strong>Jogging / Cardio</strong><span class="pill pill-moss">${c.cardio}</span></div>
-          <div class="today-row"><strong>Day Off</strong><span class="pill">${new Date(exerciseMonth.getFullYear(),exerciseMonth.getMonth()+1,0).getDate()-c.total}</span></div>
+    <section class="card calendar-card">
+      <div class="calendar-nav"><button class="month-arrow" data-action="exercise-prev" aria-label="Previous month">‹</button><div class="month-title">${monthName(exerciseMonth)}</div><button class="month-arrow" data-action="exercise-next" aria-label="Next month">›</button></div>
+      ${calendarHtml(exerciseMonth,"exercise")}
+      <div class="legend">${legendItem("cyan","Upper Body")}${legendItem("saffron","Lower Body")}${legendItem("moss","Jogging / Cardio")}${legendItem("","Day Off")}</div>
+    </section>
+
+    <div class="exercise-accordion">
+      <details class="card">
+        <summary><span>Monthly Summary</span><span class="muted small">${c.total} workout days</span></summary>
+        <div class="accordion-content">
+          <div class="grid" style="gap:9px">
+            <div class="today-row"><strong>Total Workout</strong><span class="pill pill-cyan">${c.total} days</span></div>
+            <div class="today-row"><strong>Upper Body</strong><span class="pill pill-cyan">${c.upper}</span></div>
+            <div class="today-row"><strong>Lower Body</strong><span class="pill pill-saffron">${c.lower}</span></div>
+            <div class="today-row"><strong>Jogging / Cardio</strong><span class="pill pill-moss">${c.cardio}</span></div>
+            <div class="today-row"><strong>Day Off / Unmarked</strong><span class="pill">${dayOff}</span></div>
+          </div>
         </div>
-        <div style="margin-top:15px"><button class="btn btn-primary btn-block" data-action="export-exercise">Export Exercise Excel/CSV</button></div>
-      </section>
+      </details>
+
+      <details class="card" style="margin-top:10px">
+        <summary><span>Exercise Records</span><span class="muted small">${records.length} entries</span></summary>
+        <div class="accordion-content">
+          ${records.length ? `<div class="exercise-record-list">${records.map(([date,value])=>`<div class="exercise-record-row"><div><strong>${prettyDate(date)}</strong><div class="muted small">${labelExercise(value)}</div></div><span class="pill ${value==='upper'?'pill-cyan':value==='lower'?'pill-saffron':'pill-moss'}">Recorded</span></div>`).join('')}</div>` : `<div class="empty-state">No exercise records for this month yet. Tap a calendar date to add one.</div>`}
+          <div style="margin-top:14px"><button class="btn btn-primary btn-block" data-action="export-exercise">Export Exercise Excel/CSV</button></div>
+        </div>
+      </details>
     </div>
   </div>`;
 }
 
 function renderMedicine() {
   return `<div class="page">
-    <div class="section-head"><div><h2 style="margin:0">Medicine Tracker</h2><div class="muted small">Tap a date to record one or more doses.</div></div><button class="btn btn-pink" data-action="add-medicine">＋ Add Medicine</button></div>
+    <div class="section-head medicine-page-heading"><div><h2 style="margin:0">Medicine Tracker</h2><div class="muted small">Tap a date to record one or more doses.</div></div></div>
     <div class="grid two-col" style="margin-bottom:16px">
       <section class="card calendar-card">
         <div class="calendar-nav"><button class="month-arrow" data-action="medicine-prev">‹</button><div class="month-title">${monthName(medicineMonth)}</div><button class="month-arrow" data-action="medicine-next">›</button></div>
         ${calendarHtml(medicineMonth,"medicine")}
       </section>
-      <section class="card">
-        <div class="section-head">
-          <div>
-            <h3>My Medicines</h3>
-            <span class="muted small">${state.medicines.length} added</span>
+      <section class="card medicine-library-card">
+        <details class="medicine-accordion">
+          <summary><span><strong>My Medicines</strong><span class="medicine-count-label">${state.medicines.length} added</span></span></summary>
+          <div class="medicine-accordion-content">
+            <div class="medicine-library-actions">
+              <button class="btn btn-pink btn-compact" data-action="add-medicine">＋ Add Medicine</button>
+              <button class="privacy-toggle ${hideMedicines ? "is-hidden" : ""}" data-action="toggle-medicines" title="${hideMedicines ? "Show medicines" : "Hide medicines"}">${hideMedicines ? "◉ Show" : "◌ Hide"}</button>
+            </div>
+            <div class="medicine-list">
+              ${state.medicines.length ? (hideMedicines
+                ? `<div class="privacy-hidden-card"><div class="privacy-icon">◉</div><strong>Medicines hidden</strong><span>Names and dosages are concealed for privacy.</span><button class="btn btn-pink" data-action="toggle-medicines">Show Medicines</button></div>`
+                : state.medicines.map(m=>`<div class="med-item"><div class="med-details"><div class="med-name">${escapeHtml(m.name)}</div><div class="med-dose">${escapeHtml(m.dosage||"No dosage entered")}</div></div><div class="med-actions"><button class="btn btn-compact" data-action="edit-medicine" data-id="${m.id}">Edit</button><button class="btn btn-danger btn-compact" data-action="delete-medicine" data-id="${m.id}">Delete</button></div></div>`).join(""))
+                : `<div class="empty-state compact-empty">No medicines yet. Use <b>＋ Add Medicine</b> to create your list.</div>`}
+            </div>
           </div>
-          <button class="privacy-toggle ${hideMedicines ? "is-hidden" : ""}" data-action="toggle-medicines" title="${hideMedicines ? "Show medicines" : "Hide medicines"}">${hideMedicines ? "◉ Show" : "◌ Hide"}</button>
-        </div>
-        <div class="medicine-list">
-          ${state.medicines.length ? (hideMedicines
-            ? `<div class="privacy-hidden-card"><div class="privacy-icon">◉</div><strong>Medicines hidden</strong><span>Names and dosages are concealed for privacy.</span><button class="btn btn-pink" data-action="toggle-medicines">Show Medicines</button></div>`
-            : state.medicines.map(m=>`<div class="med-item"><div><div class="med-name">${escapeHtml(m.name)}</div><div class="med-dose">${escapeHtml(m.dosage||"No dosage entered")}</div></div><div class="med-actions"><button class="btn btn-primary" data-action="reminder-settings" data-id="${m.id}">⏰</button><button class="btn" data-action="edit-medicine" data-id="${m.id}">Edit</button><button class="btn btn-danger" data-action="delete-medicine" data-id="${m.id}">Delete</button></div></div>`).join(""))
-            : `<div class="empty-state">No medicines added yet.<br><br>Tap <b>＋ Add Medicine</b> to begin.</div>`}
-        </div>
+        </details>
       </section>
     </div>
     <section class="card">
@@ -259,66 +270,29 @@ function openExercisePicker(date) {
 
 function openMedicineDate(date) {
   const rows=state.medicineTaken.filter(r=>r.date===date).sort((a,b)=>a.time.localeCompare(b.time));
-  openModal(`<h3>${prettyDate(date)}</h3><div class="modal-sub">${rows.length ? `${rows.length} medicine record${rows.length===1?"":"s"}` : "No medicine recorded yet."}</div>
+  const now=new Date(), currentTime=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+  const medicinePicker=state.medicines.length
+    ? `<form id="quickDoseForm" class="quick-dose-form">
+        <div class="field"><label for="quickDoseMed">Choose medicine</label><select id="quickDoseMed" required>${state.medicines.map(m=>`<option value="${m.id}">${escapeHtml(m.name)}${m.dosage?` — ${escapeHtml(m.dosage)}`:""}</option>`).join("")}</select></div>
+        <div class="field" style="margin-top:12px"><label for="quickDoseTime">Time taken</label><input id="quickDoseTime" type="time" value="${currentTime}" required></div>
+        <button class="btn btn-pink btn-block" style="margin-top:14px" type="submit">✓ Save Medicine Record</button>
+      </form>`
+    : `<div class="empty-state" style="margin-top:12px">Add a medicine to My Medicines first, then you can select it here.</div><button class="btn btn-pink btn-block" style="margin-top:10px" data-modal-action="add-medicine" data-date="${date}">＋ Add Medicine</button>`;
+  openModal(`<h3>${prettyDate(date)}</h3><div class="modal-sub">${rows.length ? `${rows.length} medicine record${rows.length===1?"":"s"} for this date` : "No medicine recorded yet."}</div>
     ${rows.length?`<div class="taken-list">${rows.map(r=>`<div class="taken-row"><div class="taken-time">${escapeHtml(formatTime(r.time))}</div><div><strong>${escapeHtml(r.medicineName)}</strong><div class="muted small">${escapeHtml(r.dosage||"")}</div></div><button class="btn btn-danger delete-dose" data-modal-action="delete-dose" data-id="${r.id}" data-date="${date}">Remove</button></div>`).join("")}</div>`:""}
-    <div style="margin-top:15px"><button class="btn btn-pink btn-block" data-modal-action="record-dose" data-date="${date}">＋ Record Medicine</button></div>
-    <button class="btn modal-close" data-modal-action="close">Done</button>`);
-}
-
-
-function getReminderSettings(medicineId){
-  return state.medicineReminders[medicineId]||{enabled:false,times:[],message:"Monster needs med"};
-}
-async function requestNotificationPermission(){
-  if(!("Notification" in window)){toast("Notifications are not supported by this browser");return false;}
-  if(Notification.permission==="granted")return true;
-  if(Notification.permission==="denied"){toast("Notifications are blocked in browser settings");return false;}
-  try{return (await Notification.requestPermission())==="granted";}catch{return false;}
-}
-function openReminderSettings(id){
-  const med=state.medicines.find(m=>m.id===id); if(!med)return;
-  const r=getReminderSettings(id);
-  openModal(`<h3>⏰ Medicine Reminder</h3>
-  <div class="modal-sub">The notification uses a private message and does not show the medicine name.</div>
-  <form id="reminderForm">
-  <div class="field"><label>Private notification message</label><input id="reminderMessage" maxlength="80" value="${escapeHtml(r.message||"Monster needs med")}" required></div>
-  <div class="field" style="margin-top:12px"><label>Reminder times</label><div id="reminderTimes" class="reminder-time-list">
-  ${(r.times||[]).map((t,i)=>`<div class="reminder-time-row"><input class="reminder-time" type="time" value="${escapeHtml(t)}"><button type="button" class="btn btn-danger remove-reminder-time">Remove</button></div>`).join("")}
-  </div><button type="button" class="btn btn-primary btn-block" style="margin-top:8px" id="addReminderTime">＋ Add Reminder Time</button></div>
-  <label class="switch-row"><input id="remindersEnabled" type="checkbox" ${r.enabled?"checked":""}><span>Enable reminders</span></label>
-  <div class="notice" style="margin-top:12px">On iPhone, add this site to the Home Screen and allow notifications when iOS asks.</div>
-  <div class="form-actions"><button type="button" class="btn" data-modal-action="close">Cancel</button><button class="btn btn-pink" type="submit">Save Reminders</button></div>
-  </form>`);
-  const box=$("#reminderTimes");
-  $("#addReminderTime").addEventListener("click",()=>{
-    const row=document.createElement("div"); row.className="reminder-time-row";
-    row.innerHTML=`<input class="reminder-time" type="time" value="08:00"><button type="button" class="btn btn-danger remove-reminder-time">Remove</button>`;
-    box.appendChild(row); row.querySelector("button").addEventListener("click",()=>row.remove());
-  });
-  box.querySelectorAll(".remove-reminder-time").forEach(b=>b.addEventListener("click",()=>b.parentElement.remove()));
-  $("#reminderForm").addEventListener("submit",async e=>{
+    <div class="quick-dose-section"><h4 style="margin:16px 0 8px">Add medicine for this date</h4>${medicinePicker}</div>
+    <button class="btn modal-close" style="margin-top:12px" data-modal-action="close">Done</button>`);
+  const form=$("#quickDoseForm");
+  if(form) form.addEventListener("submit",e=>{
     e.preventDefault();
-    const times=[...document.querySelectorAll("#reminderTimes .reminder-time")].map(x=>x.value).filter(Boolean).sort();
-    state.medicineReminders[id]={enabled:$("#remindersEnabled").checked,times,message:$("#reminderMessage").value.trim()||"Monster needs med"};
-    saveState(); await requestNotificationPermission(); closeModal(); render(); toast("Medicine reminders saved");
+    const med=state.medicines.find(m=>m.id===$("#quickDoseMed").value), time=$("#quickDoseTime").value;
+    if(!med||!time)return;
+    state.medicineTaken.push({id:uid(),date,time,medicineId:med.id,medicineName:med.name,dosage:med.dosage||""});
+    saveState(); openMedicineDate(date); render(); toast("Medicine recorded");
   });
 }
-function checkMedicineReminders(){
-  if(!("Notification" in window)||Notification.permission!=="granted")return;
-  const now=new Date(), hhmm=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`, date=isoDate(now);
-  let changed=false;
-  state.medicines.forEach(m=>{
-    const r=getReminderSettings(m.id); if(!r.enabled||!r.times.includes(hhmm))return;
-    const guard=`${date}|${hhmm}|${m.id}`; if(state.reminderLastFired[guard])return;
-    state.reminderLastFired[guard]=true; changed=true;
-    try{new Notification(r.message||"Monster needs med",{body:"Open Daily Tracker to record it.",tag:`medicine-${m.id}-${hhmm}`,renotify:true});}catch{}
-  });
-  if(changed){const keys=Object.keys(state.reminderLastFired).sort().slice(-200);state.reminderLastFired=Object.fromEntries(keys.map(k=>[k,true]));saveState();}
-}
-setInterval(checkMedicineReminders,15000);
-setTimeout(checkMedicineReminders,1200);
 
-function openMedicineForm(id=null) {
+function openMedicineForm(id=null, returnDate=null) {
   const med=id ? state.medicines.find(m=>m.id===id) : null;
   openModal(`<h3>${med?"Edit":"Add"} Medicine</h3><div class="modal-sub">Keep the name clear so it is easy to pick on a phone.</div>
     <form id="medicineForm">
@@ -332,25 +306,7 @@ function openMedicineForm(id=null) {
     if(!name) return;
     if(med){ med.name=name; med.dosage=dosage; state.medicineTaken.forEach(r=>{if(r.medicineId===med.id){r.medicineName=name;r.dosage=dosage;}}); }
     else state.medicines.push({id:uid(),name,dosage});
-    saveState(); closeModal(); renderMedicinePage(); toast(med?"Medicine updated":"Medicine added");
-  });
-}
-
-function openDoseForm(date) {
-  if(!state.medicines.length) { closeModal(); openMedicineForm(); toast("Add a medicine first"); return; }
-  const now=new Date(), time=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-  openModal(`<h3>Record Medicine</h3><div class="modal-sub">${prettyDate(date)}</div>
-    <form id="doseForm">
-      <div class="field"><label>Medicine</label><select id="doseMed">${state.medicines.map(m=>`<option value="${m.id}">${escapeHtml(m.name)}${m.dosage?` — ${escapeHtml(m.dosage)}`:""}</option>`).join("")}</select></div>
-      <div class="field" style="margin-top:12px"><label>Time taken</label><input id="doseTime" type="time" value="${time}" required></div>
-      <div class="form-actions"><button type="button" class="btn" data-modal-action="close">Cancel</button><button class="btn btn-pink" type="submit">✓ Medicine Taken</button></div>
-    </form>`);
-  $("#doseForm").addEventListener("submit",e=>{
-    e.preventDefault();
-    const med=state.medicines.find(m=>m.id===$("#doseMed").value), t=$("#doseTime").value;
-    if(!med||!t)return;
-    state.medicineTaken.push({id:uid(),date,time:t,medicineId:med.id,medicineName:med.name,dosage:med.dosage||""});
-    saveState(); openMedicineDate(date); render(); toast("Medicine recorded");
+    saveState(); closeModal(); if(returnDate) openMedicineDate(returnDate); else renderMedicinePage(); toast(med?"Medicine updated":"Medicine added");
   });
 }
 
@@ -397,7 +353,7 @@ function importBackup(file) {
 
 function clearAll() {
   if(!confirm("Clear ALL exercise, medicine, and medicine list data? This cannot be undone unless you have a backup.")) return;
-  state=structuredClone(defaultState); saveState(); closeModal(); setPage("dashboard"); toast("All data cleared");
+  state=structuredClone(defaultState); saveState(); closeModal(); setPage("exercise"); toast("All data cleared");
 }
 
 function bindDynamic() {
@@ -413,7 +369,6 @@ function bindDynamic() {
     else if(a==="medicine-today") openMedicineDate(isoDate(new Date()));
     else if(a==="add-medicine") openMedicineForm();
     else if(a==="toggle-medicines"){ hideMedicines=!hideMedicines; render(); toast(hideMedicines?"Medicine list hidden":"Medicine list shown"); }
-    else if(a==="reminder-settings") openReminderSettings(el.dataset.id);
     else if(a==="edit-medicine") openMedicineForm(el.dataset.id);
     else if(a==="delete-medicine") deleteMedicine(el.dataset.id);
     else if(a==="delete-dose") deleteDose(el.dataset.id);
@@ -428,7 +383,6 @@ function deleteMedicine(id) {
   const med=state.medicines.find(m=>m.id===id); if(!med)return;
   if(!confirm(`Delete "${med.name}" from your medicine list? Existing records will remain.`))return;
   state.medicines=state.medicines.filter(m=>m.id!==id);
-  delete state.medicineReminders[id];
   saveState(); render(); toast("Medicine removed");
 }
 function deleteDose(id) {
@@ -454,13 +408,11 @@ document.addEventListener("click", e=>{
     const {date,value}=ma.dataset;
     if(value==="off") delete state.exercise[date]; else state.exercise[date]=value;
     saveState(); closeModal(); render(); toast(value==="off"?"Marked as day off":"Exercise saved");
-  } else if(a==="record-dose") openDoseForm(ma.dataset.date);
+  } else if(a==="add-medicine") { openMedicineForm(null, ma.dataset.date || null); }
   else if(a==="delete-dose") { const id=ma.dataset.id; state.medicineTaken=state.medicineTaken.filter(r=>r.id!==id); saveState(); openMedicineDate(ma.dataset.date); render(); }
   else if(a==="clear") clearAll();
 });
 
-$("#menuBtn").addEventListener("click",()=>{$("#sidebar").classList.add("open");$("#overlay").classList.add("show");});
-$("#overlay").addEventListener("click",closeSidebar);
 $("#todayBtn").addEventListener("click",(e)=>{
   e.preventDefault();
   e.stopPropagation();

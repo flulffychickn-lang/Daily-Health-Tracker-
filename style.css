@@ -33,7 +33,7 @@ body {
 }
 button, input, select { font: inherit; }
 button { color: inherit; }
-.app-shell { min-height: 100vh; display: flex; }
+.app-shell { min-height: 100vh; display: flex; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 
 .sidebar {
   width: 270px; flex: 0 0 270px; min-height: 100vh;
@@ -72,6 +72,22 @@ nav { display:grid; gap:7px; }
 .storage-status { color:#71839c; font-size:11px; padding:14px 12px 2px; }
 .status-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--moss); box-shadow:0 0 10px var(--moss); margin-right:7px; }
 
+.bottom-nav {
+  position:fixed; left:0; right:0; bottom:0; z-index:150;
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px;
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  background:rgba(10,15,24,.97); border-top:1px solid var(--border);
+  backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+}
+.bottom-nav .nav-item {
+  min-height:58px; padding:7px 4px; border:1px solid transparent; border-radius:13px;
+  display:flex; flex-direction:column; justify-content:center; align-items:center; gap:3px;
+  text-align:center; background:transparent; color:#aab9cd; cursor:pointer;
+}
+.bottom-nav .nav-item span { width:auto; font-size:20px; line-height:1.1; }
+.bottom-nav .nav-item small { font-size:11px; font-weight:800; }
+.bottom-nav .nav-item.active { background:rgba(40,231,255,.12); border-color:rgba(40,231,255,.32); color:var(--cyan); box-shadow:0 0 18px rgba(40,231,255,.06); }
+.bottom-nav .nav-item.active span { color:var(--cyan); }
 .main { flex:1; min-width:0; }
 .topbar {
   min-height:76px;
@@ -135,7 +151,7 @@ nav { display:grid; gap:7px; }
 .hero p { color:var(--muted); margin:0; line-height:1.55; }
 
 .grid { display:grid; gap:16px; }
-.stats-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.stats-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .two-col { grid-template-columns:1.2fr .8fr; }
 .card {
   background:rgba(15,21,32,.88); border:1px solid var(--border); border-radius:var(--radius);
@@ -290,6 +306,7 @@ nav { display:grid; gap:7px; }
 
 @media (max-width: 900px) {
   .sidebar {
+    display:none;
     position:fixed;
     left:-300px;
     top:0;
@@ -307,7 +324,7 @@ nav { display:grid; gap:7px; }
   }
   .sidebar.open { left:0; }
   .menu-btn {
-    display:grid;
+    display:none;
     place-items:center;
     width:48px;
     height:48px;
@@ -324,7 +341,7 @@ nav { display:grid; gap:7px; }
     touch-action:none;
   }
   .mobile-overlay.show { display:block; }
-  #app { padding:18px; }
+  #app { padding:18px; padding-bottom:calc(24px + env(safe-area-inset-bottom)); }
   .topbar {
     min-height:calc(68px + env(safe-area-inset-top));
     padding:calc(env(safe-area-inset-top) + 8px) 12px 8px;
@@ -439,4 +456,50 @@ nav { display:grid; gap:7px; }
   .menu-btn { width:46px; height:46px; flex-basis:46px; }
   .topbar h1 { font-size:17px; }
   #todayBtn { min-width:58px; padding-left:8px; padding-right:8px; }
+}
+
+@media (min-width: 901px) { #app { padding-bottom: 28px; } .bottom-nav { left:50%; transform:translateX(-50%); max-width:680px; border:1px solid var(--border); border-bottom:0; border-radius:18px 18px 0 0; } }
+
+
+/* Collapsible exercise summary and records: keep the calendar as the main focus. */
+.exercise-accordion { margin-top: 12px; }
+.exercise-accordion details { overflow: hidden; }
+.exercise-accordion summary {
+  list-style: none; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  min-height:52px; padding:14px 16px; cursor:pointer; font-weight:800; color:var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+.exercise-accordion summary::-webkit-details-marker { display:none; }
+.exercise-accordion summary::after { content:'＋'; color:var(--cyan); font-size:20px; line-height:1; }
+.exercise-accordion details[open] summary::after { content:'−'; }
+.exercise-accordion .accordion-content { padding:0 16px 16px; }
+.exercise-record-list { display:grid; gap:8px; }
+.exercise-record-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:rgba(255,255,255,.025); }
+@media (min-width:901px) { .bottom-nav { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+
+
+/* Compact My Medicines accordion: keep the calendar prominent on phones. */
+.medicine-library-card { padding:0; align-self:start; overflow:hidden; }
+.medicine-accordion summary { list-style:none; display:flex; align-items:center; justify-content:space-between; min-height:58px; padding:13px 16px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.medicine-accordion summary::-webkit-details-marker { display:none; }
+.medicine-accordion summary > span { display:flex; align-items:center; gap:10px; min-width:0; }
+.medicine-accordion summary strong { font-size:16px; }
+.medicine-accordion summary::after { content:'＋'; color:var(--pink); font-size:20px; line-height:1; }
+.medicine-accordion[open] summary::after { content:'−'; }
+.medicine-count-label { color:var(--muted); font-size:12px; white-space:nowrap; }
+.medicine-accordion-content { padding:0 12px 12px; border-top:1px solid var(--border); }
+.medicine-library-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; }
+.btn-compact { min-height:36px; padding:7px 10px; font-size:13px; border-radius:10px; }
+.medicine-list { display:grid; gap:8px; }
+.med-item { padding:10px; gap:8px; }
+.med-details { min-width:0; overflow-wrap:anywhere; }
+.med-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.compact-empty { padding:14px 10px; font-size:13px; }
+@media (max-width:600px) {
+  .medicine-library-card { margin-top:0; }
+  .medicine-accordion summary { min-height:52px; padding:11px 13px; }
+  .medicine-accordion-content { padding:0 10px 10px; }
+  .med-item { align-items:flex-start; }
+  .med-actions { gap:4px; }
+  .med-actions .btn-compact { padding:7px 8px; }
 }

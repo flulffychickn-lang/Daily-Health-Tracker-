@@ -1,25 +1,44 @@
 # Daily Health Tracker
 
+A mobile-friendly, installable PWA for tracking exercise and medicine records. Built with plain HTML, CSS, and JavaScript.
 
-## iPhone PWA + Medicine Reminders
+## Features
 
-This version includes `manifest.json` and `sw.js` so the tracker can be installed from Safari to the iPhone Home Screen.
+- Three-button bottom navigation: **Exercise**, **Medicine**, and **Backup**
+- Exercise calendar with workout categories
+- Collapsible Monthly Summary and Exercise Records sections
+- Medicine calendar with quick recording from a selected date
+- Choose an existing medicine from a dropdown and select the time taken
+- Compact, collapsible **My Medicines** section with Add Medicine inside it
+- Hide/show medicine details for privacy while using the app
+- CSV exports (Excel-compatible) and JSON backup/import
+- Local browser storage
+- iPhone Home Screen PWA support
+- **No medicine reminders or push notifications**
 
-Each medicine can have multiple daily reminder times and a private notification message. The default message is:
+## Deploy to GitHub Pages
 
-**Monster needs med**
+1. Create a GitHub repository.
+2. Upload the contents of this folder directly into the repository's root. Keep `index.html`, `app.js`, `style.css`, `manifest.json`, and `sw.js` at the root.
+3. In the repository, open **Settings → Pages**.
+4. Under build and deployment, choose **Deploy from a branch**.
+5. Select the `main` branch and `/(root)`, then save.
+6. Wait for GitHub Pages to publish the site and open the published URL.
 
-The notification does not reveal the medicine name.
+## Install on iPhone
 
-### iPhone setup
+1. Open the published site in **Safari** on your iPhone.
+2. Tap **Share → Add to Home Screen**.
+3. Add it, then launch the app from the Home Screen.
 
-1. Publish the repository with GitHub Pages.
-2. Open the GitHub Pages site in **Safari on iPhone**.
-3. Use Safari's **Share → Add to Home Screen**.
-4. Open the installed Daily Tracker.
-5. Configure a medicine reminder.
-6. Allow notifications if iOS asks.
+## Important privacy notes
 
-### Important limitation
+- Exercise and medicine records are stored in the browser's local storage on that device/browser. They are not automatically synced between devices.
+- Export a backup regularly if you need to preserve your records.
+- Do not upload exported backups or personal health records to GitHub. The `.gitignore` file excludes common backup/data folders, but always check what you commit.
+- Clearing browser/site data or changing browsers/devices can make local records unavailable unless you have a backup.
+- This app does not provide guaranteed alarms or background medicine reminders.
 
-Web/PWA notifications are controlled by iOS and Safari. This implementation is intended as a convenience reminder and should not be treated as a guaranteed medical alarm. For critical medication timing, keep the iPhone's built-in Reminders/Health or another dedicated medication reminder as a secondary safeguard.
+## Updating an existing deployment
+
+Upload/commit the updated app files to the same repository and keep the same GitHub Pages URL. The service worker cache version is updated in `sw.js`; if the old interface remains visible, close and reopen the installed PWA or reload the site after the service worker refreshes.

@@ -13,42 +13,23 @@
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-icon">✦</div>
-        <div>
-          <strong>Daily Tracker</strong>
-          <span>Exercise & Medicine</span>
-        </div>
-      </div>
-      <nav>
-        <button class="nav-item active" data-page="dashboard"><span>⌂</span> Dashboard</button>
-        <button class="nav-item" data-page="exercise"><span>⚡</span> Exercise</button>
-        <button class="nav-item" data-page="medicine"><span>✚</span> Medicine</button>
-        <button class="nav-item" data-page="records"><span>▦</span> Monthly Records</button>
-        <button class="nav-item" data-page="backup"><span>↥</span> Backup / Import</button>
-      </nav>
-      <div class="sidebar-bottom">
-        <button class="nav-item danger-text" data-page="clear"><span>⌫</span> Clear Data</button>
-        <div class="storage-status"><span class="status-dot"></span> Saved on this device</div>
-      </div>
-    </aside>
-
-    <div class="mobile-overlay" id="overlay"></div>
-
     <main class="main">
       <header class="topbar">
-        <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open menu">☰</button>
         <div class="topbar-title">
-          <h1 id="pageTitle">Dashboard</h1>
+          <h1 id="pageTitle">Exercise</h1>
           <span id="todayLabel"></span>
         </div>
         <button class="icon-btn" id="todayBtn" title="Go to today">Today</button>
       </header>
-
       <div id="app"></div>
     </main>
   </div>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button class="nav-item active" data-page="exercise"><span>⚡</span><small>Exercise</small></button>
+    <button class="nav-item" data-page="medicine"><span>✚</span><small>Medicine</small></button>
+    <button class="nav-item" data-page="backup"><span>↥</span><small>Backup</small></button>
+  </nav>
 
   <div class="modal-backdrop hidden" id="modalBackdrop">
     <div class="modal" id="modal"></div>
