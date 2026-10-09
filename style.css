@@ -473,7 +473,21 @@ nav { display:grid; gap:7px; }
 .exercise-accordion summary::after { content:'＋'; color:var(--cyan); font-size:20px; line-height:1; }
 .exercise-accordion details[open] summary::after { content:'−'; }
 .exercise-accordion .accordion-content { padding:0 16px 16px; }
-.exercise-record-list { display:grid; gap:8px; }
+.exercise-record-list {
+  display:grid;
+  gap:8px;
+  max-height:240px;
+  overflow-y:auto;
+  padding-right:4px;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:#30445e #0a1019;
+}
+.exercise-record-list::-webkit-scrollbar { width:7px; }
+.exercise-record-list::-webkit-scrollbar-track { background:#0a1019; border-radius:10px; }
+.exercise-record-list::-webkit-scrollbar-thumb { background:#30445e; border-radius:10px; }
+.exercise-record-list::-webkit-scrollbar-thumb:hover { background:var(--cyan); box-shadow:0 0 8px rgba(40,231,255,.35); }
+@media (max-width:600px) { .exercise-record-list { max-height:194px; } }
 .exercise-record-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:rgba(255,255,255,.025); }
 @media (min-width:901px) { .bottom-nav { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 
